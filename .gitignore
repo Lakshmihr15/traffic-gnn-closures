@@ -1,0 +1,14 @@
+# Python environments
+venv/
+tfenv/
+__pycache__/
+.DS_Store
+
+# Downloaded repos: data, road graph, pretrained checkpoint (see README)
+DCRNN_PyTorch/
+stgcn/
+
+# Large or regenerable outputs
+dcrnn_la_weights.npz
+results/test_pred.npy
+results/*.png
