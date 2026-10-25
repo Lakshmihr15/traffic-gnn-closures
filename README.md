@@ -4,6 +4,17 @@ Does a trained traffic GNN (DCRNN) predict the congestion spillover that real ro
 Traffic: TraffiDent (California PeMS, 2023). Ground truth: recorded CHP "CLOSURE of a Road" incidents.
 Everything runs on a 16 GB Mac (Apple GPU); full training is better on a CUDA GPU.
 
+## Checkpoint results (quick DCRNN run, test period May 25 – Jun 30, 2023)
+
+| Method | MAE overall (mph) | Normal traffic | During recorded closures |
+| --- | --- | --- | --- |
+| Last value | 2.02 | 1.89 | 2.89 |
+| Typical speed for time of week | 2.77 | 2.33 | 7.56 |
+| DCRNN | 1.79 | 1.64 | 3.12 |
+
+E2 pilot on 69 held-out closures (21 verified): DCRNN predicts −0.1 mph slowdown upstream within 5 km where
+9.1 mph was observed, and 0.7 vs 13.6 mph downstream. Details in `results/`.
+
 ## Setup
 
 ```bash
