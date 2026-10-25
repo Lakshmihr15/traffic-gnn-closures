@@ -1,0 +1,5 @@
+torch>=2.1
+numpy
+pandas
+pytest
+kaggle  # downloads TraffiDent files (needs your own Kaggle API token)

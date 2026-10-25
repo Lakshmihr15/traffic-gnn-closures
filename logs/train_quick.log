@@ -1,0 +1,9 @@
+Step 8: DCRNN with 372,353 weights on mps
+epoch   0  train MAE 1.182  val MAE 2.459  lr 1e-02  1354s  *saved
+epoch   1  train MAE 1.075  val MAE 2.365  lr 1e-02  1336s  *saved
+epoch   2  train MAE 1.273  val MAE 2.156  lr 1e-03  1331s  *saved
+epoch   3  train MAE 1.589  val MAE 2.006  lr 1e-04  1332s  *saved
+epoch   4  train MAE 1.855  val MAE 1.956  lr 1e-05  1330s  *saved
+epoch   5  train MAE 1.934  val MAE 1.955  lr 1e-05  1335s  *saved
+Test accuracy of the best checkpoint (TraffiDent paper, DCRNN on flow: MAE 11.90 @5min, 13.41 @15min, 14.84 @30min)
+mae_all 1.794  mae@1 0.943  mae@3 1.443  mae@6 1.832  mae@12 2.307  rmse@12 5.062  mape@12 5.169  mae_normal 1.637  mae_incident 3.117  mae_slowdown 11.090

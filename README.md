@@ -1,47 +1,50 @@
-# Traffic GNNs under road closures — MVP code
+# Traffic GNNs under road closures
 
-Pretrained DCRNN on METR-LA, a closure simulator, a real-event extractor and spillover metrics.
-Everything runs on CPU.
+Does a trained traffic GNN (DCRNN) predict the congestion spillover that real road closures cause?
+Traffic: TraffiDent (California PeMS, 2023). Ground truth: recorded CHP "CLOSURE of a Road" incidents.
+Everything runs on a 16 GB Mac (Apple GPU); full training is better on a CUDA GPU.
 
 ## Setup
 
 ```bash
-python -m venv venv && . venv/bin/activate
-pip install torch numpy pandas scipy
-git clone --depth 1 https://github.com/chnsh/DCRNN_PyTorch.git     # road graph + pretrained TF checkpoint
-git clone --depth 1 https://github.com/hazdzz/STGCN.git stgcn      # data/metr-la/vel.csv (METR-LA speeds)
+python3 -m venv venv && venv/bin/pip install -r requirements.txt
 ```
 
-`vel.csv` holds the same values as DCRNN's `metr-la.h5`, in the same column order (checked against the
-test-set truth shipped in `DCRNN_PyTorch/data/dcrnn_predictions_pytorch.npz`).
-Set `ROOT` in `data.py` to the folder that holds both clones.
+Download TraffiDent from Kaggle (`gpxlcj/xtraffic`, CC BY-NC 4.0) and put into `data/raw/traffident/`:
+`sensor_meta_feature.csv`, `node_order.npy`, `incidents_y2023.csv`, and `year_2023/year_2023/2023_p01.npy` …
+`2023_p06.npy` (Jan–Jun). From the full `archive.zip`:
 
-The authors' pretrained weights are a TensorFlow checkpoint. Export them once to NumPy (needs `tensorflow`):
-
-```python
-import tensorflow as tf, numpy as np
-r = tf.train.load_checkpoint('DCRNN_PyTorch/data/model/pretrained/METR-LA/models-2.7422-24375')
-np.savez('dcrnn_la_weights.npz', **{k.replace('DCRNN/DCRNN_SEQ/', ''): r.get_tensor(k)
-         for k in r.get_variable_to_shape_map() if k.startswith('DCRNN/DCRNN_SEQ') and 'Adam' not in k})
+```bash
+unzip archive.zip 'year_2023/year_2023/2023_p0[1-6].npy' incidents_y2023.csv sensor_meta_feature.csv node_order.npy -d data/raw/traffident
 ```
 
 ## Run
 
 ```bash
-python eval_test.py      # pretrained DCRNN on the 6,850 test windows -> results/test_pred.npy (~20 min CPU)
-python events.py         # typical speed + real events in the test period -> results/events_test.csv
-python closure_exp.py    # E2 pilot: 3 closure variants x 145 events -> results/closure_pilot.csv
-python analyze.py        # accuracy tables, event vs normal error, spillover summary -> results/summary.json
+python -m pytest tests                       # graph direction, isolation, incident parsing (no data needed)
+python explore_traffident.py                 # counts of sensors and incidents per district
+python prepare_data.py                       # Steps 1-7 + incident matching -> data/processed/   (~1 min)
+python train.py --batch-size 16              # full DCRNN recipe -> checkpoints/dcrnn_base.pt   (days on a Mac)
+python train.py --epochs 6 --stride 4 --batch-size 16 --out checkpoints/dcrnn_quick.pt   # quick run (~2 h)
+python baselines.py --checkpoint checkpoints/dcrnn_quick.pt   # E1: last value, typical speed, DCRNN
+python e2_pilot.py  --checkpoint checkpoints/dcrnn_quick.pt   # E2: simulated vs observed spillover
+python finetune.py --base checkpoints/dcrnn_quick.pt          # Step 10: upweight closures in the loss
 ```
+
+Settings (district, months, target channel, thresholds, model size) are in `config.py`.
 
 ## Files
 
 | File | What it does |
 | --- | --- |
-| `dcrnn.py` | Minimal PyTorch DCRNN matching the original TF cell; the graph only enters through `build_supports(adj)` |
-| `data.py` | Loading, splits and scaling, identical to DCRNN's `generate_training_data.py` |
-| `events.py` | Typical speed (training period only) and the event extractor |
-| `closure_exp.py` | Closure variants (cut, transplant, both), counterfactual runs, spillover summary per event |
-| `analyze.py` | Level 1–3 metrics, baselines, bootstrap intervals |
+| `config.py` | Paths and all settings |
+| `tgc/data.py` | Steps 1–7: sensors, traffic, cleaning, directed road graph from postmiles, time features, windows, split, scaling |
+| `tgc/incidents.py` | Classifies CHP incidents and matches them to the nearest sensor on the same freeway and direction |
+| `tgc/model.py` | DCRNN; the graph enters only through `supports`, so closures can be applied at inference |
+| `tgc/training.py` | Masked metrics, training epoch, evaluation (overall, per horizon, closures vs normal) |
+| `tgc/closures.py` | Closure simulator (input / graph / both) and spillover measures |
+| `prepare_data.py`, `train.py`, `tune.py`, `finetune.py`, `baselines.py`, `e2_pilot.py` | Scripts |
+| `results/` | Metrics from the runs below |
 
-Convention: A[i, j] > 0 means i is upstream of j (driving distance from i to j). Slowdowns are in mph, positive = slower.
+Conventions: `adj[i, j] > 0` means traffic flows from sensor i to j (i is upstream). Slowdowns are in mph,
+positive = slower. Speed 0 = missing reading.
