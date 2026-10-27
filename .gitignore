@@ -6,3 +6,4 @@ data/
 checkpoints/
 logs/*
 !logs/train_quick.log
+results/incident_impact_events.csv

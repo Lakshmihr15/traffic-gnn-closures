@@ -31,6 +31,27 @@ class TypicalSpeed(nn.Module):
         return data.typical[data.slots[y_idx]]
 
 
+class IncidentBlend(nn.Module):
+    """A trained model, blended with last value while an incident is active at the sensor at forecast time.
+
+    Last value wins the first minutes of an incident and the model the later ones, so the model's share
+    grows with the horizon: 1/12 at 5 minutes, all of it at 60 minutes. Fixed in advance, not tuned.
+    `active` is a (T, N) bool mask of incidents that are known (reported and not cleared) at each step.
+    """
+
+    def __init__(self, model, active):
+        super().__init__()
+        self.model, self.active = model, active
+
+    def predict(self, x, y_idx, data):
+        pred = data.unscale(self.model(x))[..., 0]
+        last = LastValue().predict(x, y_idx, data)
+        share = torch.arange(1, y_idx.shape[1] + 1, device=x.device) / y_idx.shape[1]
+        blend = share[None, :, None] * pred + (1 - share[None, :, None]) * last
+        now = self.active[y_idx[:, 0] - 1].unsqueeze(1)          # incident active at the last input step
+        return torch.where(now, blend, pred)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--checkpoint", default=None)

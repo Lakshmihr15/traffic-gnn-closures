@@ -50,6 +50,7 @@ class ModelConfig:
     num_layers: int = 2
     max_diffusion_step: int = 2          # K
     horizon: int = 12
+    incident_inputs: bool = False        # 4 extra inputs: which incident type is active and how recently it started
 
 
 @dataclass

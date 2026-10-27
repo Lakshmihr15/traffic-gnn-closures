@@ -38,13 +38,18 @@ def main():
     ap.add_argument("--edge-drop", type=float, default=0.0)
     ap.add_argument("--max-regress", type=float, default=0.02, help="allowed relative rise in overall val MAE")
     ap.add_argument("--max-batches", type=int, default=None)
+    ap.add_argument("--batch-size", type=int, default=TrainConfig.batch_size, help="16 fits a 16 GB Mac")
+    ap.add_argument("--stride", type=int, default=1, help="use every n-th train/val window")
     ap.add_argument("--device", default="auto")
     args = ap.parse_args()
 
     device = pick_device(args.device)
-    data = TrafficData(PROCESSED, device)
+    base_cfg = torch.load(args.base, map_location="cpu", weights_only=False)["model_cfg"]
+    data = TrafficData(PROCESSED, device, incident_inputs=base_cfg.get("incident_inputs", False))
+    for split in ("train", "val"):
+        data.splits[split] = data.splits[split][::args.stride]
     model, ckpt = load_model(args.base, data, device)
-    tcfg = replace(TrainConfig(), base_lr=args.lr, epochs=args.epochs)
+    tcfg = replace(TrainConfig(), base_lr=args.lr, epochs=args.epochs, batch_size=args.batch_size)
     seed_everything(tcfg.seed)
     rng = np.random.default_rng(tcfg.seed)
 

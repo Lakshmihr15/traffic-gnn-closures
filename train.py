@@ -68,22 +68,24 @@ def main():
     ap.add_argument("--device", default="auto")
     ap.add_argument("--stride", type=int, default=1,
                     help="use every n-th train/val window; neighbouring windows overlap by 55 of 60 minutes")
+    ap.add_argument("--incident-inputs", action="store_true",
+                    help="also give the model which incident type is active at each sensor (known at forecast time)")
     ap.add_argument("--out", default=str(CHECKPOINTS / "dcrnn_base.pt"))
     args = ap.parse_args()
 
     device = pick_device(args.device)
-    data = TrafficData(PROCESSED, device)
+    data = TrafficData(PROCESSED, device, incident_inputs=args.incident_inputs)
     for split in ("train", "val"):
         data.splits[split] = data.splits[split][::args.stride]
     mcfg = ModelConfig(num_nodes=data.num_nodes, input_dim=data.input_dim, rnn_units=args.units,
-                       max_diffusion_step=args.K, horizon=data.horizon)
+                       max_diffusion_step=args.K, horizon=data.horizon, incident_inputs=args.incident_inputs)
     tcfg = replace(TrainConfig(), epochs=args.epochs, base_lr=args.lr, seed=args.seed, batch_size=args.batch_size)
     if args.epochs < tcfg.lr_milestones[0]:
         # Short run: fit the learning-rate decay and the decoder's switch from true to predicted inputs
         # inside the run (with the paper's settings both happen only after ~20 epochs)
         e = args.epochs
         total_batches = e * math.ceil(len(data.splits["train"]) / tcfg.batch_size)
-        tcfg = replace(tcfg, lr_milestones=(int(e * .5), int(e * .7), int(e * .9)),
+        tcfg = replace(tcfg, lr_milestones=tuple(sorted({max(1, int(e * f)) for f in (.5, .7, .9)})),
                        cl_decay_steps=max(50, total_batches // 12))
 
     out = Path(args.out)

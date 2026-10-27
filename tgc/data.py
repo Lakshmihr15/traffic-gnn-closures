@@ -164,10 +164,17 @@ def nonrecurring_slowdowns(speed, typical, slots, drop, min_steps):
 
 # Loading processed data and making batches
 class TrafficData:
-    def __init__(self, path, device):
+    def __init__(self, path, device, incident_inputs=False):
         z = np.load(path)
         self.device = device
-        self.features = torch.from_numpy(z["features"]).to(device)       # (T, N, F) scaled
+        features = z["features"]
+        if incident_inputs:
+            # Imported here: tgc.incidents is only needed for incident-aware models
+            from config import EVENTS
+            from tgc.incidents import input_features
+            extra = input_features(pd.read_csv(EVENTS), *features.shape[:2])
+            features = np.concatenate([features, extra], -1)
+        self.features = torch.from_numpy(features).to(device)            # (T, N, F) scaled
         self.speed = torch.from_numpy(z["speed"]).to(device)             # (T, N) raw mph
         self.incident = torch.from_numpy(z["incident"]).to(device)       # (T, N) bool, recorded incidents
         self.slowdown = torch.from_numpy(z["slowdown"]).to(device)       # (T, N) bool, unexplained drops

@@ -74,6 +74,23 @@ def match_incidents(incidents, sensors, start, num_steps, cfg):
     return ev[cols].sort_values("start_step").reset_index(drop=True)
 
 
+INPUT_GROUPS = [("closure",), ("collision",), ("hazard", "other", "sigalert")]
+
+
+def input_features(events, num_steps, num_nodes, freq_minutes=5, fade_minutes=120):
+    """(T, N, 4) model inputs: is a closure / collision / other incident active at this sensor, and how recently
+    did it start (1 at the report, fading to 0 after fade_minutes). Only what is known at time t is used: an
+    incident counts from its report until the report closes."""
+    feats = np.zeros((num_steps, num_nodes, len(INPUT_GROUPS) + 1), dtype=np.float32)
+    for e in events[~events.on_ramp].itertuples():
+        group = next(i for i, kinds in enumerate(INPUT_GROUPS) if e.kind in kinds)
+        s, t = e.start_step, e.end_step
+        feats[s:t, e.node, group] = 1.0
+        fresh = 1.0 - np.minimum(np.arange(t - s) * freq_minutes / fade_minutes, 1.0)
+        feats[s:t, e.node, -1] = np.maximum(feats[s:t, e.node, -1], fresh)
+    return feats
+
+
 def event_mask(events, num_steps, num_nodes, kinds):
     """(T, N) True while a freeway incident of the given kinds is active at its sensor."""
     mask = np.zeros((num_steps, num_nodes), dtype=bool)
