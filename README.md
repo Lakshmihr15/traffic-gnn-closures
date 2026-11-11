@@ -34,6 +34,16 @@ than the same 2 extra epochs without any incident information (3.01): at this bu
 training longer. With 35 test closures, differences under ~0.05 mph are treated as ties.
 All numbers in `results/incident_eval_compare.json` and `results/incident_impact_summary.csv`.
 
+**D. Graph ablation** (`train.py --no-graph`: same weights and budget, each sensor sees only its own history).
+The graph helps in normal traffic (1.84 vs 1.88) and mild incidents, but hurts in severe ones: without it,
+closures 3.01 → 2.94 and SigAlerts 3.82 → 3.57 (95th-percentile error 19.8 → 14.6). Results in
+`results/incident_eval_nograph.json`.
+
+**E. Closure error breakdown** (`closure_errors.py`). The DCRNN beats last value on closure readings where traffic is
+not actually slowed (1.50 vs 1.65) and loses where it is (7.24 vs 6.38), forecasting 5.4 mph too fast on average
+(last value +2.9, no-graph model +4.5): neighbours that still look normal pull it toward recovery. It loses most
+30–60 min after the report and in daytime. Results in `results/closure_errors.json`.
+
 An earlier closure-simulation pilot (`e2_pilot.py`, results in `results/e2_pilot*`) found the model predicts
 almost no spillover; it is kept for reference but no longer part of the study.
 
@@ -64,6 +74,8 @@ python finetune.py --base checkpoints/dcrnn_check_incident.pt --out checkpoints/
     --epochs 2 --lr 1e-4 --incident-weight 20 --stride 8 --batch-size 16   # upweight closures in the loss
 python incident_impact.py                    # A: speed and flow change per incident type vs controls
 python incident_eval.py checkpoints/*.pt --blend   # B: error per incident type, baselines + checkpoints
+python train.py --epochs 3 --stride 8 --batch-size 16 --no-graph --out checkpoints/dcrnn_check_nograph.pt   # D: ablation
+python closure_errors.py checkpoints/dcrnn_check_plain_ft.pt checkpoints/dcrnn_check_nograph_ft.pt   # E: closure errors
 python baselines.py --checkpoint checkpoints/dcrnn_quick.pt   # last value, typical speed, DCRNN (overall)
 python e2_pilot.py  --checkpoint checkpoints/dcrnn_quick.pt   # earlier pilot: simulated vs observed spillover
 ```
@@ -82,6 +94,7 @@ Settings (district, months, target channel, thresholds, model size) are in `conf
 | `tgc/closures.py` | Closure simulator (input / graph / both) and spillover measures |
 | `incident_impact.py` | Speed and flow change after each incident type, against no-incident controls |
 | `incident_eval.py` | Forecast error per incident type (MAE, MAE@15/60 min, 95th percentile) |
+| `closure_errors.py` | Closure errors split by disruption, time since report, day/night, horizon, with signed bias |
 | `baselines.py` | Last value, typical speed, and the incident blend (model + last value during incidents) |
 | `prepare_data.py`, `train.py`, `tune.py`, `finetune.py`, `e2_pilot.py` | Scripts |
 | `results/` | Metrics from the runs below |

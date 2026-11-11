@@ -51,6 +51,7 @@ class ModelConfig:
     max_diffusion_step: int = 2          # K
     horizon: int = 12
     incident_inputs: bool = False        # 4 extra inputs: which incident type is active and how recently it started
+    use_graph: bool = True               # False = ablation: no road edges, each sensor sees only its own history
 
 
 @dataclass

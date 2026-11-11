@@ -70,6 +70,7 @@ def main():
                     help="use every n-th train/val window; neighbouring windows overlap by 55 of 60 minutes")
     ap.add_argument("--incident-inputs", action="store_true",
                     help="also give the model which incident type is active at each sensor (known at forecast time)")
+    ap.add_argument("--no-graph", action="store_true", help="ablation: drop all road edges (a GRU per sensor)")
     ap.add_argument("--out", default=str(CHECKPOINTS / "dcrnn_base.pt"))
     args = ap.parse_args()
 
@@ -78,7 +79,8 @@ def main():
     for split in ("train", "val"):
         data.splits[split] = data.splits[split][::args.stride]
     mcfg = ModelConfig(num_nodes=data.num_nodes, input_dim=data.input_dim, rnn_units=args.units,
-                       max_diffusion_step=args.K, horizon=data.horizon, incident_inputs=args.incident_inputs)
+                       max_diffusion_step=args.K, horizon=data.horizon, incident_inputs=args.incident_inputs,
+                       use_graph=not args.no_graph)
     tcfg = replace(TrainConfig(), epochs=args.epochs, base_lr=args.lr, seed=args.seed, batch_size=args.batch_size)
     if args.epochs < tcfg.lr_milestones[0]:
         # Short run: fit the learning-rate decay and the decoder's switch from true to predicted inputs

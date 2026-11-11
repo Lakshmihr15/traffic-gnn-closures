@@ -69,6 +69,8 @@ class DCRNN(nn.Module):
     def __init__(self, cfg, adj):
         super().__init__()
         self.cfg = cfg
+        if not cfg.use_graph:
+            adj = np.zeros_like(adj)   # ablation: diffusion terms vanish, only each sensor's own term is left
         self.register_buffer("supports", build_supports(adj))
         S, K, U = len(self.supports), cfg.max_diffusion_step, cfg.rnn_units
         self.encoder = nn.ModuleList(
