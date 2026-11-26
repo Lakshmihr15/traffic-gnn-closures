@@ -90,3 +90,30 @@ def test_incident_parsing():
     assert direction_on(91, "Tyler St Onr / Sr91 E") == "E"
     assert direction_on(10, "I105 W / Main St") is None
     assert on_ramp(pd.Series(["Tyler St Onr / Sr91 E", "I880 N / Davis St Onr"])).tolist() == [True, False]
+
+
+def test_gate_open_is_unchanged_and_closed_isolates():
+    """g = 1 everywhere = the plain model. g = 0 at sensor 2: other sensors' inputs no longer reach it."""
+    torch.manual_seed(0)
+    cfg = ModelConfig(num_nodes=5, input_dim=2, rnn_units=8, horizon=3)
+    model = DCRNN(cfg, chain_adj()).eval()
+    x = torch.randn(1, 6, 5, 2)
+    with torch.no_grad():
+        assert torch.allclose(model(x), model(x, gate=torch.ones(1, 2, 5)), atol=1e-6)
+        gate = torch.ones(1, 2, 5)
+        gate[:, :, 2] = 0
+        x2 = x.clone()
+        x2[:, :, [0, 1, 3, 4], 0] += 3.0
+        diff = (model(x, gate=gate) - model(x2, gate=gate)).abs()[0, :, :, 0]
+        assert diff[:, 2].max() < 1e-6 and diff[:, 3].max() > 0      # 2 is deaf; 3 still hears 2's neighbours
+        # Gating only the upstream direction: sensor 2 still hears downstream sensor 3
+        gate_up = torch.ones(1, 2, 5)
+        gate_up[:, 0, 2] = 0
+        x3 = x.clone()
+        x3[:, :, 3, 0] += 3.0
+        assert (model(x, gate=gate_up) - model(x3, gate=gate_up)).abs()[0, :, 2].max() > 0
+        x4 = x.clone()
+        x4[:, :, 1, 0] += 3.0
+        gate_both = torch.ones(1, 2, 5)
+        gate_both[:, :, 2] = 0
+        assert (model(x, gate=gate_both) - model(x4, gate=gate_both)).abs()[0, :, 2].max() < 1e-6

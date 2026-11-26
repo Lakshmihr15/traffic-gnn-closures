@@ -3,3 +3,5 @@ numpy
 pandas
 pytest
 kaggle  # downloads TraffiDent files (needs your own Kaggle API token)
+matplotlib  # demo.py and report figures
+reportlab<4.3  # report/make_report.py (4.3+ needs Python 3.10)

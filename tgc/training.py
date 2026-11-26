@@ -31,8 +31,9 @@ def teacher_prob(batches_seen, decay_steps):
     return decay_steps / (decay_steps + math.exp(min(batches_seen / decay_steps, 50)))
 
 
-def train_epoch(model, data, opt, tcfg, rng, batches_seen, weight_fn=None, supports_fn=None, max_batches=None):
-    """One pass over the training windows. weight_fn and supports_fn are the Step 10 hooks."""
+def train_epoch(model, data, opt, tcfg, rng, batches_seen, weight_fn=None, supports_fn=None, gate_fn=None,
+                max_batches=None):
+    """One pass over the training windows. weight_fn, supports_fn and gate_fn are the Step 10 hooks."""
     model.train()
     losses = []
     for b, (x, y, y_idx) in enumerate(data.batches("train", tcfg.batch_size, shuffle=True, rng=rng)):
@@ -40,7 +41,8 @@ def train_epoch(model, data, opt, tcfg, rng, batches_seen, weight_fn=None, suppo
             break
         p = teacher_prob(batches_seen, tcfg.cl_decay_steps)
         supports = supports_fn() if supports_fn else None
-        pred = data.unscale(model(x, data.scale(y), p, supports))
+        gate = gate_fn(y_idx) if gate_fn else None
+        pred = data.unscale(model(x, data.scale(y), p, supports, gate))
         weight = weight_fn(y_idx).unsqueeze(-1) if weight_fn else None
         loss = masked_mae(pred, y, weight)
         opt.zero_grad()
