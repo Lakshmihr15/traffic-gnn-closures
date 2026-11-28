@@ -131,7 +131,6 @@ python recovery_prior.py checkpoints/dcrnn_check_plain_ft.pt checkpoints/dcrnn_c
 python baselines.py --checkpoint checkpoints/dcrnn_quick.pt   # last value, typical speed, DCRNN (overall)
 python e2_pilot.py  --checkpoint checkpoints/dcrnn_quick.pt   # earlier pilot: simulated vs observed spillover
 python demo.py                               # one real test closure: forecasts of every model -> results/demo_closure.png
-python report/make_report.py                 # final report -> report/final_report.pdf
 ```
 
 Settings (district, months, target channel, thresholds, model size) are in `config.py`.
@@ -154,7 +153,6 @@ Settings (district, months, target channel, thresholds, model size) are in `conf
 | `baselines.py` | Last value, typical speed, and the incident blend (model + last value during incidents) |
 | `prepare_data.py`, `train.py`, `tune.py`, `finetune.py`, `e2_pilot.py` | Scripts |
 | `demo.py` | Demo: forecasts of each model for one test closure, with a plot |
-| `report/` | Final report (`final_report.pdf`), its generator and figures, and the demo recording script |
 | `results/` | Metrics from the runs below |
 
 Conventions: `adj[i, j] > 0` means traffic flows from sensor i to j (i is upstream). Slowdowns are in mph,
